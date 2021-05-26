@@ -187,7 +187,11 @@ pub const Func = opaque {
             .data = if (args_len == 0) undefined else @ptrCast([*]Value, &wasm_args),
         };
 
+        var result_list = ValVec.initWithCapacity(result_len);
+        defer result_list.deinit();
+
         const trap = wasm_func_call(self, &final_args, &result_list);
+
         if (trap) |t| {
             t.deinit();
             // TODO handle trap message
