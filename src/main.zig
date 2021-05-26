@@ -239,8 +239,6 @@ pub const Instance = opaque {
     /// using the same `Store` as given.
     pub fn init(store: *Store, module: *Module, import: []const *Func) !*Instance {
         var trap: ?*Trap = null;
-        var instance: ?*Instance = null;
-
         var imports = ExternVec.initWithCapacity(import.len);
         defer imports.deinit();
 
@@ -672,7 +670,7 @@ pub const ValVec = extern struct {
 
 // Func
 pub extern "c" fn wasm_functype_new(args: *ValtypeVec, results: *ValtypeVec) ?*c_void;
-pub extern "c" fn wasm_functype_delete(functype: *c_void) c_void;
+pub extern "c" fn wasm_functype_delete(functype: *c_void) void;
 
 pub const WasiConfig = opaque {
     /// Options to inherit when inherriting configs
