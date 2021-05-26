@@ -212,6 +212,10 @@ pub const Func = opaque {
         };
     }
 
+    pub fn deinit(self: *Func) void {
+        wasm_func_delete(self);
+    }
+
     /// Returns tue if the given `kind` of `Valkind` can coerce to type `T`
     fn matchesKind(comptime T: type, kind: Valkind) bool {
         return switch (T) {
@@ -226,6 +230,7 @@ pub const Func = opaque {
     }
 
     extern "c" fn wasm_func_new(*Store, ?*c_void, Callback) ?*Func;
+    extern "c" fn wasm_func_delete(*Func) void;
     extern "c" fn wasm_func_as_extern(*Func) ?*Extern;
     extern "c" fn wasm_func_copy(*Func) ?*Func;
     extern "c" fn wasm_func_call(*Func, *const ValVec, *ValVec) ?*Trap;
