@@ -221,7 +221,7 @@ pub const Func = opaque {
     }
 
     /// Returns tue if the given `kind` of `Valkind` can coerce to type `T`
-    fn matchesKind(comptime T: type, kind: Valkind) bool {
+    pub fn matchesKind(comptime T: type, kind: Valkind) bool {
         return switch (T) {
             i32, u32 => kind == .i32,
             i64, u64 => kind == .i64,
@@ -236,7 +236,7 @@ pub const Func = opaque {
     extern "c" fn wasm_func_new(*Store, ?*c_void, Callback) ?*Func;
     extern "c" fn wasm_func_delete(*Func) void;
     extern "c" fn wasm_func_as_extern(*Func) ?*Extern;
-    extern "c" fn wasm_func_copy(*Func) ?*Func;
+    extern "c" fn wasm_func_copy(*const Func) ?*Func;
     extern "c" fn wasm_func_call(*Func, *const ValVec, *ValVec) ?*Trap;
     extern "c" fn wasm_func_result_arity(*Func) usize;
     extern "c" fn wasm_func_param_arity(*Func) usize;
