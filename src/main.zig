@@ -29,7 +29,7 @@ pub const Config = opaque {
         return config;
     }
 
-    extern fn wasm_config_new() ?*Config;
+    extern "c" fn wasm_config_new() ?*Config;
 };
 
 pub const Engine = opaque {
@@ -47,9 +47,9 @@ pub const Engine = opaque {
         wasm_engine_delete(self);
     }
 
-    extern fn wasm_engine_new() ?*Engine;
-    extern fn wasm_engine_new_with_config(*Config) ?*Engine;
-    extern fn wasm_engine_delete(*Engine) void;
+    extern "c" fn wasm_engine_new() ?*Engine;
+    extern "c" fn wasm_engine_new_with_config(*Config) ?*Engine;
+    extern "c" fn wasm_engine_delete(*Engine) void;
 };
 
 pub const Store = opaque {
@@ -63,8 +63,8 @@ pub const Store = opaque {
         wasm_store_delete(self);
     }
 
-    extern fn wasm_store_new(*Engine) ?*Store;
-    extern fn wasm_store_delete(*Store) void;
+    extern "c" fn wasm_store_new(*Engine) ?*Store;
+    extern "c" fn wasm_store_delete(*Store) void;
 };
 
 pub const Module = opaque {
@@ -87,8 +87,8 @@ pub const Module = opaque {
         wasm_module_delete(self);
     }
 
-    extern fn wasm_module_new(*Store, *const ByteVec) ?*Module;
-    extern fn wasm_module_delete(*Module) void;
+    extern "c" fn wasm_module_new(*Store, *const ByteVec) ?*Module;
+    extern "c" fn wasm_module_delete(*Module) void;
 };
 
 fn cb(params: ?*const Valtype, results: ?*Valtype) callconv(.C) ?*Trap {
@@ -225,12 +225,12 @@ pub const Func = opaque {
         };
     }
 
-    extern fn wasm_func_new(*Store, ?*c_void, Callback) ?*Func;
-    extern fn wasm_func_as_extern(*Func) ?*Extern;
-    extern fn wasm_func_copy(*Func) ?*Func;
-    extern fn wasm_func_call(*Func, *const ValVec, *ValVec) ?*Trap;
-    extern fn wasm_func_result_arity(*Func) usize;
-    extern fn wasm_func_param_arity(*Func) usize;
+    extern "c" fn wasm_func_new(*Store, ?*c_void, Callback) ?*Func;
+    extern "c" fn wasm_func_as_extern(*Func) ?*Extern;
+    extern "c" fn wasm_func_copy(*Func) ?*Func;
+    extern "c" fn wasm_func_call(*Func, *const ValVec, *ValVec) ?*Trap;
+    extern "c" fn wasm_func_result_arity(*Func) usize;
+    extern "c" fn wasm_func_param_arity(*Func) usize;
 };
 
 pub const Instance = opaque {
@@ -336,8 +336,8 @@ pub const Trap = opaque {
         return bytes.?;
     }
 
-    extern fn wasm_trap_delete(*Trap) void;
-    extern fn wasm_trap_message(*const Trap, out: *?*ByteVec) void;
+    extern "c" fn wasm_trap_delete(*Trap) void;
+    extern "c" fn wasm_trap_message(*const Trap, out: *?*ByteVec) void;
 };
 
 pub const Extern = opaque {
@@ -499,7 +499,7 @@ pub const ExportType = opaque {
         return self.wasm_exporttype_name().?;
     }
 
-    extern fn wasm_exporttype_name(*ExportType) ?*ByteVec;
+    extern "c" fn wasm_exporttype_name(*ExportType) ?*ByteVec;
 };
 
 pub const ExportTypeVec = extern struct {
@@ -517,7 +517,7 @@ pub const ExportTypeVec = extern struct {
         self.wasm_exporttype_vec_delete();
     }
 
-    extern fn wasm_exporttype_vec_delete(*ExportTypeVec) void;
+    extern "c" fn wasm_exporttype_vec_delete(*ExportTypeVec) void;
 };
 
 pub const InstanceType = opaque {
@@ -532,8 +532,8 @@ pub const InstanceType = opaque {
         return export_vec;
     }
 
-    extern fn wasm_instancetype_delete(*InstanceType) void;
-    extern fn wasm_instancetype_exports(*InstanceType, ?*ExportTypeVec) void;
+    extern "c" fn wasm_instancetype_delete(*InstanceType) void;
+    extern "c" fn wasm_instancetype_exports(*InstanceType, ?*ExportTypeVec) void;
 };
 
 pub const Callback = fn (?*const Valtype, ?*Valtype) callconv(.C) ?*Trap;
@@ -549,6 +549,13 @@ pub const ByteVec = extern struct {
         return bytes;
     }
 
+    /// Initializes and copies contents of the input slice
+    pub fn fromSlice(slice: []const u8) ByteVec {
+        var bytes: ByteVec = undefined;
+        wasm_byte_vec_new(&bytes, slice.len, slice.ptr);
+        return bytes;
+    }
+
     /// Returns a slice to the byte vector
     pub fn toSlice(self: ByteVec) []const u8 {
         return self.data[0..self.size];
@@ -559,8 +566,9 @@ pub const ByteVec = extern struct {
         wasm_byte_vec_delete(self);
     }
 
-    extern fn wasm_byte_vec_new_uninitialized(ptr: *ByteVec, size: usize) void;
-    extern fn wasm_byte_vec_delete(ptr: *ByteVec) void;
+    extern "c" fn wasm_byte_vec_new(*ByteVec, usize, [*]const u8) void;
+    extern "c" fn wasm_byte_vec_new_uninitialized(*ByteVec, usize) void;
+    extern "c" fn wasm_byte_vec_delete(*ByteVec) void;
 };
 
 pub const NameVec = extern struct {
@@ -590,9 +598,9 @@ pub const ExternVec = extern struct {
         return externs;
     }
 
-    extern fn wasm_extern_vec_new_empty(ptr: *ExternVec) void;
-    extern fn wasm_extern_vec_new_uninitialized(ptr: *ExternVec, size: usize) void;
-    extern fn wasm_extern_vec_delete(ptr: *ExternVec) void;
+    extern "c" fn wasm_extern_vec_new_empty(*ExternVec) void;
+    extern "c" fn wasm_extern_vec_new_uninitialized(*ExternVec, usize) void;
+    extern "c" fn wasm_extern_vec_delete(*ExternVec) void;
 };
 
 pub const Valkind = extern enum(u8) {
@@ -630,9 +638,9 @@ pub const Valtype = opaque {
         return @intToEnum(Valkind, wasm_valtype_kind(self));
     }
 
-    extern fn wasm_valtype_new(kind: u8) *Valtype;
-    extern fn wasm_valtype_delete(*Valkind) void;
-    extern fn wasm_valtype_kind(*Valkind) u8;
+    extern "c" fn wasm_valtype_new(kind: u8) *Valtype;
+    extern "c" fn wasm_valtype_delete(*Valkind) void;
+    extern "c" fn wasm_valtype_kind(*Valkind) u8;
 };
 
 pub const ValtypeVec = extern struct {
@@ -658,13 +666,13 @@ pub const ValVec = extern struct {
         self.wasm_val_vec_delete();
     }
 
-    extern fn wasm_val_vec_new_uninitialized(*ValVec, usize) void;
-    extern fn wasm_val_vec_delete(*ValVec) void;
+    extern "c" fn wasm_val_vec_new_uninitialized(*ValVec, usize) void;
+    extern "c" fn wasm_val_vec_delete(*ValVec) void;
 };
 
 // Func
-pub extern fn wasm_functype_new(args: *ValtypeVec, results: *ValtypeVec) ?*c_void;
-pub extern fn wasm_functype_delete(functype: *c_void) void;
+pub extern "c" fn wasm_functype_new(args: *ValtypeVec, results: *ValtypeVec) ?*c_void;
+pub extern "c" fn wasm_functype_delete(functype: *c_void) c_void;
 
 pub const WasiConfig = opaque {
     /// Options to inherit when inherriting configs
@@ -716,13 +724,13 @@ pub const WasiConfig = opaque {
         wasi_config_inherit_stderr(self);
     }
 
-    extern fn wasi_config_new() ?*WasiConfig;
-    extern fn wasi_config_delete(?*WasiConfig) void;
-    extern fn wasi_config_inherit_argv(?*WasiConfig) void;
-    extern fn wasi_config_inherit_env(?*WasiConfig) void;
-    extern fn wasi_config_inherit_stdin(?*WasiConfig) void;
-    extern fn wasi_config_inherit_stdout(?*WasiConfig) void;
-    extern fn wasi_config_inherit_stderr(?*WasiConfig) void;
+    extern "c" fn wasi_config_new() ?*WasiConfig;
+    extern "c" fn wasi_config_delete(?*WasiConfig) void;
+    extern "c" fn wasi_config_inherit_argv(?*WasiConfig) void;
+    extern "c" fn wasi_config_inherit_env(?*WasiConfig) void;
+    extern "c" fn wasi_config_inherit_stdin(?*WasiConfig) void;
+    extern "c" fn wasi_config_inherit_stdout(?*WasiConfig) void;
+    extern "c" fn wasi_config_inherit_stderr(?*WasiConfig) void;
 };
 
 pub const WasiInstance = opaque {
@@ -734,8 +742,8 @@ pub const WasiInstance = opaque {
         wasm_instance_delete(self);
     }
 
-    extern fn wasi_instance_new(?*Store, [*:0]const u8, ?*WasiConfig, *?*Trap) ?*WasiInstance;
-    extern fn wasm_instance_delete(?*WasiInstance) void;
+    extern "c" fn wasi_instance_new(?*Store, [*:0]const u8, ?*WasiConfig, *?*Trap) ?*WasiInstance;
+    extern "c" fn wasm_instance_delete(?*WasiInstance) void;
 };
 
 test "" {
