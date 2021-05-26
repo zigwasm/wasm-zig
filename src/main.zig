@@ -164,7 +164,7 @@ pub const Func = opaque {
             @compileError("Expected 'args' to be a tuple, but found type '" ++ @typeName(@TypeOf(args)) ++ "'");
 
         const args_len = args.len;
-        comptime var wasm_args: [args_len]c.Value = undefined;
+        comptime var wasm_args: [args_len]Value = undefined;
         inline for (wasm_args) |*arg, i| {
             arg.* = switch (@TypeOf(args[i])) {
                 i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @intCast(i32, args[i]) } },
@@ -172,7 +172,7 @@ pub const Func = opaque {
                 f32 => .{ .kind = .f32, .of = .{ .f32 = args[i] } },
                 f64 => .{ .kind = .f64, .of = .{ .f64 = args[i] } },
                 *Func => .{ .kind = .funcref, .of = .{ .ref = args[i] } },
-                *c.Extern => .{ .kind = .anyref, .of = .{ .ref = args[i] } },
+                *Extern => .{ .kind = .anyref, .of = .{ .ref = args[i] } },
                 else => |ty| @compileError("Unsupported argument type '" ++ @typeName(ty) + "'"),
             };
         }
@@ -238,10 +238,10 @@ pub const Instance = opaque {
     /// The given slice defined in `import` must match what was initialized
     /// using the same `Store` as given.
     pub fn init(store: *Store, module: *Module, import: []const *Func) !*Instance {
-        var trap: ?*c.Trap = null;
+        var trap: ?*Trap = null;
         var instance: ?*Instance = null;
 
-        var imports = c.ExternVec.initWithCapacity(import.len);
+        var imports = ExternVec.initWithCapacity(import.len);
         defer imports.deinit();
 
         var ptr = imports.data;
@@ -274,8 +274,8 @@ pub const Instance = opaque {
 
     /// Returns an export by its name and `null` when not found
     /// The `Extern` is copied and must be freed manually
-    pub fn getExport(self: *Instance, name: []const u8) ?*c.Extern {
-        var externs: c.ExternVec = undefined;
+    pub fn getExport(self: *Instance, name: []const u8) ?*Extern {
+        var externs: ExternVec = undefined;
         wasm_instance_exports(self, &externs);
         defer externs.deinit();
 
@@ -298,17 +298,17 @@ pub const Instance = opaque {
         } else null;
     }
 
-    /// Returns an exported `c.Memory` when found and `null` when not.
+    /// Returns an exported `Memory` when found and `null` when not.
     /// The result is copied and must be freed manually by calling `deinit()` on the result.
-    pub fn getExportMem(self: *Instance, name: []const u8) ?*c.Memory {
+    pub fn getExportMem(self: *Instance, name: []const u8) ?*Memory {
         return if (self.getExport(name)) |exp| {
             defer exp.deinit(); // free the copy
             return exp.asMemory().copy();
         } else null;
     }
 
-    /// Returns the `c.InstanceType` of the `Instance`
-    pub fn getType(self: *Instance) *c.InstanceType {
+    /// Returns the `InstanceType` of the `Instance`
+    pub fn getType(self: *Instance) *InstanceType {
         return wasm_instance_type(self).?;
     }
 
