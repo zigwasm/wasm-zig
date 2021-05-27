@@ -2,7 +2,7 @@ pkgs:
   wasm:
     version: 0.0.0
     description: "Common Wasm runtime binding to C API"
-    source_url: "https://github.com/kubkon/wasm-zig"
+    source_url: "https://github.com/zigwasm/wasm-zig"
 
     root: src/main.zig
     files:
