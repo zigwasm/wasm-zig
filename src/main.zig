@@ -87,8 +87,16 @@ pub const Module = opaque {
         wasm_module_delete(self);
     }
 
+    /// Returns a list of export types in `ExportTypeVec`
+    pub fn exports(self: *Module) ExportTypeVec {
+        var vec: ExportTypeVec = undefined;
+        wasm_module_exports(self, &vec);
+        return vec;
+    }
+
     extern "c" fn wasm_module_new(*Store, *const ByteVec) ?*Module;
     extern "c" fn wasm_module_delete(*Module) void;
+    extern "c" fn wasm_module_exports(?*const Module, *ExportTypeVec) void;
 };
 
 fn cb(params: ?*const Valtype, results: ?*Valtype) callconv(.C) ?*Trap {
@@ -179,8 +187,8 @@ pub const Func = opaque {
 
         // TODO multiple return values
         const result_len: usize = if (ResultType == void) 0 else 1;
-        if (result_len != self.wasm_func_result_arity()) return CallError.InvalidResultCount;
-        if (args_len != self.wasm_func_param_arity()) return CallError.InvalidParamCount;
+        if (result_len != wasm_func_result_arity(self)) return CallError.InvalidResultCount;
+        if (args_len != wasm_func_param_arity(self)) return CallError.InvalidParamCount;
 
         const final_args = ValVec{
             .size = args_len,
@@ -272,8 +280,8 @@ pub const Instance = opaque {
     /// Returns an export func by its name if found
     /// Asserts the export is of type `Func`
     /// The returned `Func` is a copy and must be freed by the caller
-    pub fn getExportFunc(self: *Instance, name: []const u8) ?*Func {
-        return if (self.getExport(name)) |exp| {
+    pub fn getExportFunc(self: *Instance, module: *Module, name: []const u8) ?*Func {
+        return if (self.getExport(module, name)) |exp| {
             defer exp.deinit(); // free the copy
             return exp.asFunc().copy();
         } else null;
@@ -281,20 +289,20 @@ pub const Instance = opaque {
 
     /// Returns an export by its name and `null` when not found
     /// The `Extern` is copied and must be freed manually
-    pub fn getExport(self: *Instance, name: []const u8) ?*Extern {
+    ///
+    /// a `Module` must be provided to find an extern by its name, rather than index.
+    /// use getExportByIndex for quick access to an extern by index.
+    pub fn getExport(self: *Instance, module: *Module, name: []const u8) ?*Extern {
         var externs: ExternVec = undefined;
         wasm_instance_exports(self, &externs);
         defer externs.deinit();
 
-        const instance_type = self.getType();
-        defer instance_type.deinit();
+        var exports = module.exports();
+        defer exports.deinit();
 
-        var type_exports = instance_type.exports();
-        defer type_exports.deinit();
-
-        return for (type_exports.toSlice()) |ty, index| {
-            const t = ty orelse continue;
-            const type_name = t.name();
+        return for (exports.toSlice()) |export_type, index| {
+            const ty = export_type orelse continue;
+            const type_name = ty.name();
             defer type_name.deinit();
 
             if (std.mem.eql(u8, name, type_name.toSlice())) {
@@ -305,18 +313,25 @@ pub const Instance = opaque {
         } else null;
     }
 
+    /// Returns an export by a given index. Returns null when the index
+    /// is out of bounds. The extern is non-owned, meaning it's illegal
+    /// behaviour to free its memory.
+    pub fn getExportByIndex(self: *Instance, index: u32) ?*Extern {
+        var externs: ExternVec = undefined;
+        wasm_instance_exports(self, &externs);
+        defer externs.deinit();
+
+        if (index > externs.size) return null;
+        return externs.data[index].?;
+    }
+
     /// Returns an exported `Memory` when found and `null` when not.
     /// The result is copied and must be freed manually by calling `deinit()` on the result.
-    pub fn getExportMem(self: *Instance, name: []const u8) ?*Memory {
-        return if (self.getExport(name)) |exp| {
+    pub fn getExportMem(self: *Instance, module: *Module, name: []const u8) ?*Memory {
+        return if (self.getExport(module, name)) |exp| {
             defer exp.deinit(); // free the copy
             return exp.asMemory().copy();
         } else null;
-    }
-
-    /// Returns the `InstanceType` of the `Instance`
-    pub fn getType(self: *Instance) *InstanceType {
-        return wasm_instance_type(self).?;
     }
 
     /// Frees the `Instance`'s resources
@@ -327,7 +342,6 @@ pub const Instance = opaque {
     extern "c" fn wasm_instance_new(*Store, *const Module, *const ExternVec, *?*Trap) ?*Instance;
     extern "c" fn wasm_instance_delete(*Instance) void;
     extern "c" fn wasm_instance_exports(*Instance, *ExternVec) void;
-    extern "c" fn wasm_instance_type(*const Instance) ?*InstanceType;
 };
 
 pub const Trap = opaque {
@@ -398,6 +412,16 @@ pub const Extern = opaque {
         return wasm_extern_same(self, other);
     }
 
+    /// Returns the type of an `Extern` as `ExternType`
+    pub fn toType(self: *const Extern) *ExternType {
+        return wasm_extern_type(self).?;
+    }
+
+    /// Returns the kind of an `Extern`
+    pub fn kind(self: *const Extern) ExternKind {
+        return wasm_extern_kind(self);
+    }
+
     extern "c" fn wasm_extern_as_func(*Extern) ?*Func;
     extern "c" fn wasm_extern_as_memory(*Extern) ?*Memory;
     extern "c" fn wasm_extern_as_global(*Extern) ?*Global;
@@ -405,6 +429,37 @@ pub const Extern = opaque {
     extern "c" fn wasm_extern_delete(*Extern) void;
     extern "c" fn wasm_extern_copy(*Extern) ?*Extern;
     extern "c" fn wasm_extern_same(*const Extern, *const Extern) bool;
+    extern "c" fn wasm_extern_type(?*const Extern) ?*ExternType;
+    extern "c" fn wasm_extern_kind(?*const Extern) ExternKind;
+};
+
+pub const ExternKind = std.wasm.ExternalKind;
+
+pub const ExternType = opaque {
+    /// Creates an `ExternType` from an existing `Extern`
+    pub fn fromExtern(extern_object: *const Extern) *ExternType {
+        return Extern.wasm_extern_type(extern_object).?;
+    }
+
+    /// Frees the memory of given `ExternType`
+    pub fn deinit(self: *ExternType) void {
+        wasm_externtype_delete(self);
+    }
+
+    /// Copies the given export type. Returned copy's memory must be
+    /// freed manually by calling `deinit()` on the object.
+    pub fn copy(self: *ExportType) *ExportType {
+        return wasm_externtype_copy(self).?;
+    }
+
+    /// Returns the `ExternKind` from a given export type.
+    pub fn kind(self: *const ExportType) ExternKind {
+        return wasm_externtype_kind(self);
+    }
+
+    extern "c" fn wasm_externtype_delete(?*ExportType) void;
+    extern "c" fn wasm_externtype_copy(?*ExportType) ?*ExportType;
+    extern "c" fn wasm_externtype_kind(?*const ExternType) ExternKind;
 };
 
 pub const Memory = opaque {
@@ -525,22 +580,6 @@ pub const ExportTypeVec = extern struct {
     }
 
     extern "c" fn wasm_exporttype_vec_delete(*ExportTypeVec) void;
-};
-
-pub const InstanceType = opaque {
-    pub fn deinit(self: *InstanceType) void {
-        self.wasm_instancetype_delete();
-    }
-
-    /// Returns a vector of `ExportType` in a singular type `ExportTypeVec`
-    pub fn exports(self: *InstanceType) ExportTypeVec {
-        var export_vec: ExportTypeVec = undefined;
-        self.wasm_instancetype_exports(&export_vec);
-        return export_vec;
-    }
-
-    extern "c" fn wasm_instancetype_delete(*InstanceType) void;
-    extern "c" fn wasm_instancetype_exports(*InstanceType, ?*ExportTypeVec) void;
 };
 
 pub const Callback = fn (?*const Valtype, ?*Valtype) callconv(.C) ?*Trap;
