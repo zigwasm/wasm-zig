@@ -100,6 +100,8 @@ pub const Module = opaque {
 };
 
 fn cb(params: ?*const Valtype, results: ?*Valtype) callconv(.C) ?*Trap {
+    _ = params;
+    _ = results;
     const func = @intToPtr(fn () void, CALLBACK);
     func();
     return null;
@@ -241,7 +243,7 @@ pub const Func = opaque {
         };
     }
 
-    extern "c" fn wasm_func_new(*Store, ?*c_void, Callback) ?*Func;
+    extern "c" fn wasm_func_new(*Store, ?*anyopaque, Callback) ?*Func;
     extern "c" fn wasm_func_delete(*Func) void;
     extern "c" fn wasm_func_as_extern(*Func) ?*Extern;
     extern "c" fn wasm_func_copy(*const Func) ?*Func;
@@ -649,7 +651,7 @@ pub const ExternVec = extern struct {
     extern "c" fn wasm_extern_vec_delete(*ExternVec) void;
 };
 
-pub const Valkind = extern enum(u8) {
+pub const Valkind = enum(u8) {
     i32 = 0,
     i64 = 1,
     f32 = 2,
@@ -665,14 +667,14 @@ pub const Value = extern struct {
         i64: i64,
         f32: f32,
         f64: f64,
-        ref: ?*c_void,
+        ref: ?*anyopaque,
     },
 };
 
 pub const Valtype = opaque {
     /// Initializes a new `Valtype` based on the given `Valkind`
-    pub fn init(kind: Valkind) *Valtype {
-        return wasm_valtype_new(@enumToInt(kind));
+    pub fn init(valKind: Valkind) *Valtype {
+        return wasm_valtype_new(@enumToInt(valKind));
     }
 
     pub fn deinit(self: *Valtype) void {
@@ -717,8 +719,8 @@ pub const ValVec = extern struct {
 };
 
 // Func
-pub extern "c" fn wasm_functype_new(args: *ValtypeVec, results: *ValtypeVec) ?*c_void;
-pub extern "c" fn wasm_functype_delete(functype: *c_void) void;
+pub extern "c" fn wasm_functype_new(args: *ValtypeVec, results: *ValtypeVec) ?*anyopaque;
+pub extern "c" fn wasm_functype_delete(functype: *anyopaque) void;
 
 pub const WasiConfig = opaque {
     /// Options to inherit when inherriting configs
