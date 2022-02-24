@@ -177,8 +177,8 @@ pub const Func = opaque {
         comptime var wasm_args: [args_len]Value = undefined;
         inline for (wasm_args) |*arg, i| {
             arg.* = switch (@TypeOf(args[i])) {
-                i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @intCast(i32, args[i]) } },
-                i64, u64 => .{ .kind = .i64, .of = .{ .i64 = @intCast(i64, args[i]) } },
+                i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @bitCast(i32, args[i]) } },
+                i64, u64 => .{ .kind = .i64, .of = .{ .i64 = @bitCast(i64, args[i]) } },
                 f32 => .{ .kind = .f32, .of = .{ .f32 = args[i] } },
                 f64 => .{ .kind = .f64, .of = .{ .f64 = args[i] } },
                 *Func => .{ .kind = .funcref, .of = .{ .ref = args[i] } },
