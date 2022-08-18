@@ -794,6 +794,6 @@ pub const WasiInstance = opaque {
     extern "c" fn wasm_instance_delete(?*WasiInstance) void;
 };
 
-test "" {
+test "run_tests" {
     testing.refAllDecls(@This());
 }
