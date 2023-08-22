@@ -584,7 +584,7 @@ pub const ExportTypeVec = extern struct {
     extern "c" fn wasm_exporttype_vec_delete(*ExportTypeVec) void;
 };
 
-pub const Callback = *fn (?*const Valtype, ?*Valtype) callconv(.C) ?*Trap;
+pub const Callback = *const fn (?*const Valtype, ?*Valtype) callconv(.C) ?*Trap;
 
 pub const ByteVec = extern struct {
     size: usize,
