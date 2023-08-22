@@ -102,7 +102,7 @@ pub const Module = opaque {
 fn cb(params: ?*const Valtype, results: ?*Valtype) callconv(.C) ?*Trap {
     _ = params;
     _ = results;
-    const func = @as(fn () void, @ptrFromInt(CALLBACK));
+    const func = @as(*const fn () void, @ptrFromInt(CALLBACK));
     func();
     return null;
 }
