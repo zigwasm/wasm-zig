@@ -134,7 +134,7 @@ pub const Func = opaque {
             },
             else => @compileError("only functions can be used as callbacks into Wasm"),
         }
-        CALLBACK = @intFromPtr(callback);
+        CALLBACK = @intFromPtr(&callback);
 
         var args = ValtypeVec.empty();
         var results = ValtypeVec.empty();
