@@ -128,7 +128,7 @@ pub const Func = opaque {
         const cb_meta = @typeInfo(@TypeOf(callback));
         switch (cb_meta) {
             .Fn => {
-                if (cb_meta.Fn.args.len > 0 or cb_meta.Fn.return_type.? != void) {
+                if (cb_meta.Fn.params.len > 0 or cb_meta.Fn.return_type.? != void) {
                     @compileError("only callbacks with no input args and no results are currently supported");
                 }
             },
