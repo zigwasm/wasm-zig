@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
 
     const optimize = b.standardOptimizeOption(.{});
@@ -14,6 +14,12 @@ pub fn build(b: *std.Build) void {
     lib.linkLibC();
 
     b.installArtifact(lib);
+
+    const module = b.createModule(.{
+        .source_file = .{ .path = "src/main.zig" },
+    });
+
+    try b.modules.put(b.dupe("wasm"), module);
 
     var main_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/main.zig" },
