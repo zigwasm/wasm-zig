@@ -102,7 +102,7 @@ pub const Module = opaque {
 fn cb(params: ?*const Valtype, results: ?*Valtype) callconv(.C) ?*Trap {
     _ = params;
     _ = results;
-    const func = @intToPtr(fn () void, CALLBACK);
+    const func = @as(fn () void, @ptrFromInt(CALLBACK));
     func();
     return null;
 }
@@ -134,7 +134,7 @@ pub const Func = opaque {
             },
             else => @compileError("only functions can be used as callbacks into Wasm"),
         }
-        CALLBACK = @ptrToInt(callback);
+        CALLBACK = @intFromPtr(callback);
 
         var args = ValtypeVec.empty();
         var results = ValtypeVec.empty();
@@ -175,10 +175,10 @@ pub const Func = opaque {
 
         const args_len = args.len;
         comptime var wasm_args: [args_len]Value = undefined;
-        inline for (wasm_args) |*arg, i| {
+        inline for (wasm_args, 0..) |*arg, i| {
             arg.* = switch (@TypeOf(args[i])) {
-                i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @bitCast(i32, args[i]) } },
-                i64, u64 => .{ .kind = .i64, .of = .{ .i64 = @bitCast(i64, args[i]) } },
+                i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @as(i32, @bitCast(args[i])) } },
+                i64, u64 => .{ .kind = .i64, .of = .{ .i64 = @as(i64, @bitCast(args[i])) } },
                 f32 => .{ .kind = .f32, .of = .{ .f32 = args[i] } },
                 f64 => .{ .kind = .f64, .of = .{ .f64 = args[i] } },
                 *Func => .{ .kind = .funcref, .of = .{ .ref = args[i] } },
@@ -194,7 +194,7 @@ pub const Func = opaque {
 
         const final_args = ValVec{
             .size = args_len,
-            .data = if (args_len == 0) undefined else @ptrCast([*]Value, &wasm_args),
+            .data = if (args_len == 0) undefined else @as([*]Value, @ptrCast(&wasm_args)),
         };
 
         var result_list = ValVec.initWithCapacity(result_len);
@@ -216,12 +216,12 @@ pub const Func = opaque {
         if (!matchesKind(ResultType, result_ty.kind)) return CallError.InvalidResultType;
 
         return switch (ResultType) {
-            i32, u32 => @intCast(ResultType, result_ty.of.i32),
-            i64, u64 => @intCast(ResultType, result_ty.of.i64),
+            i32, u32 => @as(ResultType, @intCast(result_ty.of.i32)),
+            i64, u64 => @as(ResultType, @intCast(result_ty.of.i64)),
             f32 => result_ty.of.f32,
             f64 => result_ty.of.f64,
-            *Func => @ptrCast(?*Func, result_ty.of.ref).?,
-            *Extern => @ptrCast(?*Extern, result_ty.of.ref).?,
+            *Func => @as(?*Func, @ptrCast(result_ty.of.ref)).?,
+            *Extern => @as(?*Extern, @ptrCast(result_ty.of.ref)).?,
             else => |ty| @compileError("Unsupported result type '" ++ @typeName(ty) ++ "'"),
         };
     }
@@ -302,7 +302,7 @@ pub const Instance = opaque {
         var exports = module.exports();
         defer exports.deinit();
 
-        return for (exports.toSlice()) |export_type, index| {
+        return for (exports.toSlice(), 0..) |export_type, index| {
             const ty = export_type orelse continue;
             const type_name = ty.name();
             defer type_name.deinit();
@@ -674,7 +674,7 @@ pub const Value = extern struct {
 pub const Valtype = opaque {
     /// Initializes a new `Valtype` based on the given `Valkind`
     pub fn init(valKind: Valkind) *Valtype {
-        return wasm_valtype_new(@enumToInt(valKind));
+        return wasm_valtype_new(@intFromEnum(valKind));
     }
 
     pub fn deinit(self: *Valtype) void {
@@ -683,7 +683,7 @@ pub const Valtype = opaque {
 
     /// Returns the `Valkind` of the given `Valtype`
     pub fn kind(self: *Valtype) Valkind {
-        return @intToEnum(Valkind, wasm_valtype_kind(self));
+        return @as(Valkind, @enumFromInt(wasm_valtype_kind(self)));
     }
 
     extern "c" fn wasm_valtype_new(kind: u8) *Valtype;
